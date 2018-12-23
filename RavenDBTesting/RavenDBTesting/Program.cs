@@ -1,7 +1,9 @@
 ﻿using Raven.Client.Documents;
+using Raven.Client.Documents.Session;
 using Raven.Client.ServerWide;
 using Raven.Client.ServerWide.Operations;
 using System;
+using System.Collections.Generic;
 using static AB.Extensions.ConsoleExtensions;
 
 namespace RavenDBTesting
@@ -14,7 +16,7 @@ namespace RavenDBTesting
             WriteLineWithColor("App started.", ConsoleColor.Yellow);
             DocumentStore store = InitializeRavenDbDocumentStore();
             WriteLineWithColor("Document store initialized with " + store.Database + " database.", ConsoleColor.Yellow);
-            
+
             #region Delete Database
 
             store.Maintenance.Server.Send(new DeleteDatabasesOperation(store.Database, hardDelete: true));
@@ -27,7 +29,31 @@ namespace RavenDBTesting
 
             #endregion
 
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                for (int i = 1; i <= 7; i++)
+                {
+                    //var prof = new TeaProfile();
+                    var prof = new TeaProfile((TeaProfile.TeaColorEnum)i, TeaNamesDictionary[i]);
+                    prof.Name = TeaNamesDictionary[i];
+                    prof.CaffeineMilligrams = 34;
+                    prof.TeaColor = (TeaProfile.TeaColorEnum)i;
 
+                    session.Store(prof); // also id and change vector overloads!
+                    WriteLineWithColor($"Saved {prof.Name} to database.", ConsoleColor.Green);
+                }
+
+                // data only staged into the session, not in the database yet
+                session.SaveChanges();
+            }
+
+            WriteLineWithColor($"Moving to Load()", ConsoleColor.Yellow);
+
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                TeaProfile profile = session.Load<TeaProfile>("Earl Grey");
+                WriteLineWithColor($"Loaded {profile.Name}", ConsoleColor.Blue);
+            }
 
 
 
@@ -56,5 +82,17 @@ namespace RavenDBTesting
             store.Initialize();
             return store;
         }
+
+        // temp variables
+        public static Dictionary<int, string> TeaNamesDictionary { get; set; } = new Dictionary<int, string>()
+        {
+            {1,"Matcha" },
+            {2, "Earl Grey" },
+            {3, "White Peony" },
+            {4, "Blood Orange" },
+            {5, "Joker Tea" },
+            {6, "Masala Chai" },
+            {7, "Peach Oolong" }
+        };
     }
 }

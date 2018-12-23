@@ -4,7 +4,8 @@ using System.Text;
 
 namespace RavenDBTesting
 {
-    class CupOfTea
+    public class CupOfTea
     {
+
     }
 }
