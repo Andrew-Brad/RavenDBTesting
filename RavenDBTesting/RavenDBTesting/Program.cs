@@ -96,13 +96,22 @@ namespace RavenDBTesting
             {
                 Stopwatch loadStopwatch = new Stopwatch();
                 loadStopwatch.Start();
-                session
+                loadProfilesStartingWith = session
                     .Advanced
                     .LoadStartingWith<TeaProfile>(idPrefix, null, 0, 50);
                 loadStopwatch.Stop();
-                WriteLineWithColor($"Loaded {loadMultipleProfiles.Count} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadMultipleProfiles.Values.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
+                WriteLineWithColor($"Loaded {loadProfilesStartingWith.Count()} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadProfilesStartingWith.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
+                // session will hold and track multiple entities instead of making the full roundtrip
+                var isEarlGreyLoadedFromSession = session.Advanced.IsLoaded(loadProfilesStartingWith.First().Id);
             }
 
+            #endregion
+
+            
+            
+            
+            
+            #region LoadStartingWith - multiple executions when underlying Change Vector is different
             #endregion
 
             Console.ReadKey();
