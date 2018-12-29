@@ -4,13 +4,15 @@ using Raven.Client.ServerWide;
 using Raven.Client.ServerWide.Operations;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using static AB.Extensions.ConsoleExtensions;
 
 namespace RavenDBTesting
 {
     class Program
     {
-        const string DatabaseName = "RavenDBTesting";
+        const string DatabaseName = "RavenDBTeaCollection";
         static void Main(string[] args)
         {
             WriteLineWithColor("App started.", ConsoleColor.Yellow);
@@ -29,31 +31,36 @@ namespace RavenDBTesting
 
             #endregion
 
+            #region Store
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
-                for (int i = 1; i <= 7; i++)
+                List<TeaProfile> teaProfiles = GetProfiles();
+                foreach (var profile in teaProfiles)
                 {
-                    //var prof = new TeaProfile();
-                    var prof = new TeaProfile((TeaProfile.TeaColorEnum)i, TeaNamesDictionary[i]);
-                    prof.Name = TeaNamesDictionary[i];
-                    prof.CaffeineMilligrams = 34;
-                    prof.TeaColor = (TeaProfile.TeaColorEnum)i;
-
-                    session.Store(prof); // also id and change vector overloads!
-                    WriteLineWithColor($"Saved {prof.Name} to database.", ConsoleColor.Green);
+                    // data only staged into the session, not in the database yet
+                    session.Store(profile); // also id and change vector overloads!
+                    WriteLineWithColor($"Saved {profile.Name} to session.", ConsoleColor.DarkGreen);
                 }
 
-                // data only staged into the session, not in the database yet
+                Stopwatch saveChangesStopwatch = new Stopwatch();
+                WriteLineWithColor($"Saving session to database...", ConsoleColor.Yellow);
+                saveChangesStopwatch.Start();
                 session.SaveChanges();
+                saveChangesStopwatch.Stop();
+                WriteLineWithColor($"Session persisted database.", ConsoleColor.Green);
             }
+            #endregion
 
+            #region Load
             WriteLineWithColor($"Moving to Load()", ConsoleColor.Yellow);
-
+            TeaProfile loadProfileById = null;
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
-                TeaProfile profile = session.Load<TeaProfile>("Earl Grey");
-                WriteLineWithColor($"Loaded {profile.Name}", ConsoleColor.Blue);
+                loadProfileById = session.Load<TeaProfile>("Earl Grey");
+                WriteLineWithColor($"Loaded {loadProfileById.Name}.  It has {loadProfileById.CaffeineMilligrams} mg of caffeine!", ConsoleColor.Blue);
             }
+            #endregion
+
 
 
 
@@ -65,6 +72,20 @@ namespace RavenDBTesting
             store.Maintenance.Server.Send(new DeleteDatabasesOperation(store.Database, hardDelete: true));
 
             #endregion
+        }
+
+        private static List<TeaProfile> GetProfiles()
+        {
+            TeaProfile[] profiles = new TeaProfile[7];
+            for (int i = 1; i <= 7; i++)
+            {
+                var prof = new TeaProfile((TeaProfile.TeaColorEnum)i, TeaNamesDictionary[i]);
+                prof.Name = TeaNamesDictionary[i];
+                prof.CaffeineMilligrams = 34;
+                prof.TeaColor = (TeaProfile.TeaColorEnum)i;
+                profiles[i-1] = prof;
+            }
+            return profiles.ToList();
         }
 
         public static DocumentStore InitializeRavenDbDocumentStore()
@@ -83,7 +104,7 @@ namespace RavenDBTesting
             return store;
         }
 
-        // temp variables
+        // hardcoded sample data
         public static Dictionary<int, string> TeaNamesDictionary { get; set; } = new Dictionary<int, string>()
         {
             {1,"Matcha" },
