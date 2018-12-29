@@ -109,10 +109,8 @@ namespace RavenDBTesting
 
             #region Document Query - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#example-i---basic
 
-            // Think of this as a way to stream/page the entire dataset with no conditional criteria
             WriteLineWithColor($"Moving to Basic Document Query", ConsoleColor.Blue);
             List<TeaProfile> docQueryAllProfiles = null;
-            //string idPrefix = "TeaProfiles/";
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
                 Stopwatch loadStopwatch = new Stopwatch();
@@ -126,8 +124,39 @@ namespace RavenDBTesting
                 WriteLineWithColor($"Loaded {docQueryAllProfiles.Count} profiles that have caffeine greater than 5 in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {docQueryAllProfiles.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);                
             }
 
+            // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
+
             #endregion
 
+            #region Advanced Document Query - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#example-i---basic
+
+            // Expressing complex queries natively in the C# - eventually these turn into dedicated indexes server-side
+            WriteLineWithColor($"Moving to Advanced Document Query", ConsoleColor.Blue);
+            List<TeaProfile> docQuerySpecificProfiles = null;
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                Stopwatch loadStopwatch = new Stopwatch();
+                loadStopwatch.Start();
+                // tea profiles that aren't white tea, and don't have caffeine above 5
+                docQuerySpecificProfiles = session
+                    .Advanced
+                    .DocumentQuery<TeaProfile>()
+                    .WhereNotEquals(x => x.TeaColor, TeaProfile.TeaColorEnum.White)
+                    .AndAlso()
+                    .Not
+                    .OpenSubclause()
+                    .WhereGreaterThan(x => x.CaffeineMilligrams, 5)
+                    .CloseSubclause()
+                    .ToList();
+                loadStopwatch.Stop();
+                WriteLineWithColor($"Loaded {docQuerySpecificProfiles.Count} tea profiles that aren't white tea, and don't have" +
+                    $" caffeine greater than 5 in {loadStopwatch.ElapsedMilliseconds} ms. {string.Join(",",docQuerySpecificProfiles.Select(x => x.Name))} made " +
+                    $"the list. Together, they have a total of {docQuerySpecificProfiles.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
+            }
+
+            // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
+
+            #endregion
 
 
             #region LoadStartingWith - multiple executions when underlying Change Vector is different

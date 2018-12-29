@@ -11,7 +11,7 @@ namespace RavenDBTesting
             Black,
             White,
             Red,
-            Blend,
+            Blend = 5,
             Chai,
             Oolong
         }
