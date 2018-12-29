@@ -31,7 +31,8 @@ namespace RavenDBTesting
 
             #endregion
 
-            #region Store
+            #region Store & SaveChanges
+
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
                 List<TeaProfile> teaProfiles = GetProfiles();
@@ -47,21 +48,35 @@ namespace RavenDBTesting
                 saveChangesStopwatch.Start();
                 session.SaveChanges();
                 saveChangesStopwatch.Stop();
-                WriteLineWithColor($"Session persisted database.", ConsoleColor.Green);
+                WriteLineWithColor($"Session persisted database in {saveChangesStopwatch.ElapsedMilliseconds} ms.", ConsoleColor.Green);
             }
+
             #endregion
 
-            #region Load
-            WriteLineWithColor($"Moving to Load()", ConsoleColor.Yellow);
+            #region Load - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/loading-entities#load
+
+            WriteLineWithColor($"Moving to Load()", ConsoleColor.Blue);
             TeaProfile loadProfileById = null;
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
                 loadProfileById = session.Load<TeaProfile>("Earl Grey");
-                WriteLineWithColor($"Loaded {loadProfileById.Name}.  It has {loadProfileById.CaffeineMilligrams} mg of caffeine!", ConsoleColor.Blue);
+                WriteLineWithColor($"Loaded {loadProfileById.Name}.  It has {loadProfileById.CaffeineMilligrams} mg of caffeine!", ConsoleColor.Green);
             }
+
             #endregion
 
+            #region Load Multiple - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/loading-entities#load---multiple-entities
 
+            WriteLineWithColor($"Moving to LoadMultiple()", ConsoleColor.Blue);
+            Dictionary<string,TeaProfile> loadMultipleProfiles = null;
+            IEnumerable<string> idsToFetch = TeaNamesDictionary.Values.AsEnumerable();
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                loadMultipleProfiles = session.Load<TeaProfile>(idsToFetch);
+                WriteLineWithColor($"Loaded {loadMultipleProfiles.Count} profiles! Together, they have a total of {loadMultipleProfiles.Values.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
+            }
+
+            #endregion
 
 
 
