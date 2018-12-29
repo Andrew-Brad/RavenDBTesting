@@ -59,7 +59,7 @@ namespace RavenDBTesting
             TeaProfile loadProfileById = null;
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
-                loadProfileById = session.Load<TeaProfile>("Earl Grey");
+                loadProfileById = session.Load<TeaProfile>("TeaProfiles/Earl Grey");
                 WriteLineWithColor($"Loaded {loadProfileById.Name}.  It has {loadProfileById.CaffeineMilligrams} mg of caffeine!", ConsoleColor.Green);
             }
 
@@ -68,17 +68,42 @@ namespace RavenDBTesting
             #region Load Multiple - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/loading-entities#load---multiple-entities
 
             WriteLineWithColor($"Moving to LoadMultiple()", ConsoleColor.Blue);
-            Dictionary<string,TeaProfile> loadMultipleProfiles = null;
-            IEnumerable<string> idsToFetch = TeaNamesDictionary.Values.AsEnumerable();
+            Dictionary<string, TeaProfile> loadMultipleProfiles = null;
+            List<string> idsToFetch = TeaNamesDictionary.Values.ToList();
+            for (int i = 0; i < idsToFetch.Count; i++)
+            {
+                idsToFetch[i] = "TeaProfiles/" + idsToFetch[i]; // example of leaky Id prefixing logic
+            }
+
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
+                Stopwatch loadStopwatch = new Stopwatch();
+                loadStopwatch.Start();
                 loadMultipleProfiles = session.Load<TeaProfile>(idsToFetch);
-                WriteLineWithColor($"Loaded {loadMultipleProfiles.Count} profiles! Together, they have a total of {loadMultipleProfiles.Values.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
+                loadStopwatch.Stop();
+                WriteLineWithColor($"Loaded {loadMultipleProfiles.Count} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadMultipleProfiles.Values.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
             }
 
             #endregion
 
+            #region Load StartingWith - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/loading-entities#load---multiple-entities
 
+            // Think of this as a way to stream/page the entire dataset with no conditional criteria
+            WriteLineWithColor($"Moving to Load StartingWith()", ConsoleColor.Blue);
+            TeaProfile[] loadProfilesStartingWith = null;
+            string idPrefix = "TeaProfiles/";
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                Stopwatch loadStopwatch = new Stopwatch();
+                loadStopwatch.Start();
+                session
+                    .Advanced
+                    .LoadStartingWith<TeaProfile>(idPrefix, null, 0, 50);
+                loadStopwatch.Stop();
+                WriteLineWithColor($"Loaded {loadMultipleProfiles.Count} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadMultipleProfiles.Values.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
+            }
+
+            #endregion
 
             Console.ReadKey();
 
@@ -98,7 +123,7 @@ namespace RavenDBTesting
                 prof.Name = TeaNamesDictionary[i];
                 prof.CaffeineMilligrams = 34;
                 prof.TeaColor = (TeaProfile.TeaColorEnum)i;
-                profiles[i-1] = prof;
+                profiles[i - 1] = prof;
             }
             return profiles.ToList();
         }
