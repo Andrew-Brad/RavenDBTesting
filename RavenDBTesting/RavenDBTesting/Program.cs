@@ -107,10 +107,29 @@ namespace RavenDBTesting
 
             #endregion
 
-            
-            
-            
-            
+            #region Document Query - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#example-i---basic
+
+            // Think of this as a way to stream/page the entire dataset with no conditional criteria
+            WriteLineWithColor($"Moving to Basic Document Query", ConsoleColor.Blue);
+            List<TeaProfile> docQueryAllProfiles = null;
+            //string idPrefix = "TeaProfiles/";
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                Stopwatch loadStopwatch = new Stopwatch();
+                loadStopwatch.Start();
+                docQueryAllProfiles = session
+                    .Advanced
+                    .DocumentQuery<TeaProfile>()
+                    .WhereGreaterThan(x => x.CaffeineMilligrams,5)
+                    .ToList();
+                loadStopwatch.Stop();
+                WriteLineWithColor($"Loaded {docQueryAllProfiles.Count} profiles that have caffeine greater than 5 in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {docQueryAllProfiles.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);                
+            }
+
+            #endregion
+
+
+
             #region LoadStartingWith - multiple executions when underlying Change Vector is different
             #endregion
 
@@ -130,7 +149,7 @@ namespace RavenDBTesting
             {
                 var prof = new TeaProfile((TeaProfile.TeaColorEnum)i, TeaNamesDictionary[i]);
                 prof.Name = TeaNamesDictionary[i];
-                prof.CaffeineMilligrams = 34;
+                prof.CaffeineMilligrams = i;
                 prof.TeaColor = (TeaProfile.TeaColorEnum)i;
                 profiles[i - 1] = prof;
             }
