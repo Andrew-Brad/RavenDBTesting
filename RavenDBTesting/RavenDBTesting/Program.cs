@@ -183,6 +183,13 @@ namespace RavenDBTesting
                     .Where(x => x.CaffeineMilligrams < 3)
                     .ToList();
                 loadStopwatch.Stop();
+                // or with the advanced stuff
+                indexedQueryResults = session
+                    .Advanced
+                    .DocumentQuery<TeaProfile, TeaProfile_CaffeineIndex>()
+                    .WhereBetween(x => x.CaffeineMilligrams, 0, 3)
+                    .ToList();
+
                 WriteLineWithColor($"Loaded {indexedQueryResults.Count} profiles that have caffeine less than 5 in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {indexedQueryResults.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
             }
 
