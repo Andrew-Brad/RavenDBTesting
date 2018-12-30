@@ -1,12 +1,14 @@
-﻿using Raven.Client.Documents;
-using Raven.Client.Documents.Session;
-using Raven.Client.ServerWide;
-using Raven.Client.ServerWide.Operations;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Raven.Client.Documents;
+using Raven.Client.Documents.Indexes;
+using Raven.Client.Documents.Session;
+using Raven.Client.ServerWide;
+using Raven.Client.ServerWide.Operations;
 using static AB.Extensions.ConsoleExtensions;
+using static RavenDBTesting.RavenIndexes;
 
 namespace RavenDBTesting
 {
@@ -28,6 +30,12 @@ namespace RavenDBTesting
             #region Create Database
 
             store.Maintenance.Server.Send(new CreateDatabaseOperation(new DatabaseRecord(DatabaseName)));
+
+            // Prepare indexes (multiple ways to deploy these)
+            // new TeaProfile_CaffeineIndex().Execute(store);
+
+            // All classes that inherit from AbstractIndexCreationTask can be deployed at once using one of IndexCreation.CreateIndexes method overloads.
+            IndexCreation.CreateIndexes(typeof(Program).Assembly, store);
 
             #endregion
 
@@ -162,6 +170,26 @@ namespace RavenDBTesting
 
             #endregion
 
+            #region Query against index - https://ravendb.net/docs/article-page/4.1/csharp/indexes/what-are-indexes#basic-example
+
+            WriteLineWithColor($"Moving to Query against index", ConsoleColor.Blue);
+            List<TeaProfile> indexedQueryResults = null;
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                Stopwatch loadStopwatch = new Stopwatch();
+                loadStopwatch.Start();
+                indexedQueryResults = session
+                    .Query<TeaProfile, TeaProfile_CaffeineIndex>()
+                    .Where(x => x.CaffeineMilligrams < 3)
+                    .ToList();
+                loadStopwatch.Stop();
+                WriteLineWithColor($"Loaded {indexedQueryResults.Count} profiles that have caffeine less than 5 in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {indexedQueryResults.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
+            }
+
+            // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
+
+            #endregion
+                       
             #region Interrogate document store conventions to assist with calling code
 
             string conventionCollectionName = store.Conventions.FindCollectionName(typeof(TeaProfile));
@@ -212,6 +240,7 @@ namespace RavenDBTesting
             // All customizations need to be set before DocumentStore.Initialize() is called.
             // https://ravendb.net/docs/article-page/4.0/csharp/client-api/configuration/conventions
             store.Initialize();
+
             return store;
         }
 
