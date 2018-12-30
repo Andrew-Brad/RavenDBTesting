@@ -38,7 +38,8 @@ namespace RavenDBTesting
                 List<TeaProfile> teaProfiles = GetProfiles();
                 foreach (var profile in teaProfiles)
                 {
-                    // data only staged into the session, not in the database yet
+                    var collectionName = store.Conventions.GetCollectionName(profile);
+                    // data only staged into the session, not in the database yet                                       
                     session.Store(profile); // also id and change vector overloads!
                     WriteLineWithColor($"Saved {profile.Name} to session.", ConsoleColor.DarkGreen);
                 }
@@ -59,7 +60,8 @@ namespace RavenDBTesting
             TeaProfile loadProfileById = null;
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
-                loadProfileById = session.Load<TeaProfile>("TeaProfiles/Earl Grey");
+                string idPrefix = store.Conventions.FindCollectionName(typeof(TeaProfile));                
+                loadProfileById = session.Load<TeaProfile>(idPrefix + "/" + "Earl Grey");
                 WriteLineWithColor($"Loaded {loadProfileById.Name}.  It has {loadProfileById.CaffeineMilligrams} mg of caffeine!", ConsoleColor.Green);
             }
 
@@ -72,7 +74,8 @@ namespace RavenDBTesting
             List<string> idsToFetch = TeaNamesDictionary.Values.ToList();
             for (int i = 0; i < idsToFetch.Count; i++)
             {
-                idsToFetch[i] = "TeaProfiles/" + idsToFetch[i]; // example of leaky Id prefixing logic
+                // RavenDB documents its Id building format as such https://ravendb.net/docs/article-page/4.1/csharp/client-api/configuration/identifier-generation/global#identitypartsseparator
+                idsToFetch[i] = store.Conventions.FindCollectionName(typeof(TeaProfile)) + store.Conventions.IdentityPartsSeparator + idsToFetch[i];
             }
 
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
@@ -91,24 +94,25 @@ namespace RavenDBTesting
             // Think of this as a way to stream/page the entire dataset with no conditional criteria
             WriteLineWithColor($"Moving to Load StartingWith()", ConsoleColor.Blue);
             TeaProfile[] loadProfilesStartingWith = null;
-            string idPrefix = "TeaProfiles/";
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
+                string prefix = store.Conventions.FindCollectionName(typeof(TeaProfile));
                 Stopwatch loadStopwatch = new Stopwatch();
                 loadStopwatch.Start();
                 loadProfilesStartingWith = session
                     .Advanced
-                    .LoadStartingWith<TeaProfile>(idPrefix, null, 0, 50);
+                    .LoadStartingWith<TeaProfile>(prefix, null, 0, 50);
                 loadStopwatch.Stop();
                 WriteLineWithColor($"Loaded {loadProfilesStartingWith.Count()} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadProfilesStartingWith.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
                 // session will hold and track multiple entities instead of making the full roundtrip
-                var isEarlGreyLoadedFromSession = session.Advanced.IsLoaded(loadProfilesStartingWith.First().Id);
+                var isEarlGreyLoadedFromSession = session.Advanced.IsLoaded(loadProfilesStartingWith.First().Name);
             }
 
             #endregion
 
-            #region Document Query - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#example-i---basic
+            #region Basic Document Query - https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#example-i---basic
 
+            // Without where clauses, this is effectively the previous query, SELECT all docs
             WriteLineWithColor($"Moving to Basic Document Query", ConsoleColor.Blue);
             List<TeaProfile> docQueryAllProfiles = null;
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
@@ -158,6 +162,14 @@ namespace RavenDBTesting
 
             #endregion
 
+            #region Interrogate document store conventions to assist with calling code
+
+            string conventionCollectionName = store.Conventions.FindCollectionName(typeof(TeaProfile));
+            string idPropertyName = store.Conventions.FindIdentityPropertyNameFromCollectionName("TeaProfiles");
+            var idPropertyMemberInfo = store.Conventions.GetIdentityProperty(typeof(TeaProfile));
+            string idSeparator = store.Conventions.IdentityPartsSeparator; // can also be changed!      
+
+            #endregion
 
             #region LoadStartingWith - multiple executions when underlying Change Vector is different
             #endregion
@@ -194,7 +206,9 @@ namespace RavenDBTesting
             };
 
             //store.Conventions.CustomizeJsonSerializer = AddCustomConverters;
-            //store.Conventions.RegisterAsyncIdConvention<CardTemplate>(IdConventions.CardTemplateIdStrategy);
+            store.Conventions.RegisterAsyncIdConvention<TeaProfile>(IdConventions.TeaNameIdStrategy);
+            store.Conventions.SaveEnumsAsIntegers = true;
+
             // All customizations need to be set before DocumentStore.Initialize() is called.
             // https://ravendb.net/docs/article-page/4.0/csharp/client-api/configuration/conventions
             store.Initialize();

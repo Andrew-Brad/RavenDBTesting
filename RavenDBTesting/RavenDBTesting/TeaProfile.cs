@@ -15,12 +15,8 @@ namespace RavenDBTesting
             Chai,
             Oolong
         }
-        /* Notice the concatenation logic:
-         * It lives here as a PoC, but a design issue presents itself
-         * Does this Id prefix logic (really needed for the DB) live in the entity or in the data layer?
-         * If business logic needs it (logging, internal operations) how does it access this prefix?
-        */
-        public string Id { get { return "TeaProfiles/" + Name; } }
+
+        //public string Id { get { return Name; } }
         public string Name { get; set; }
         public decimal CaffeineMilligrams { get; set; }
         public bool IsCaffeinated { get { return CaffeineMilligrams > 0; } }
