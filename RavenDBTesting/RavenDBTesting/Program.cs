@@ -68,7 +68,7 @@ namespace RavenDBTesting
             TeaProfile loadProfileById = null;
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
             {
-                string idPrefix = store.Conventions.FindCollectionName(typeof(TeaProfile));                
+                string idPrefix = store.Conventions.FindCollectionName(typeof(TeaProfile));
                 loadProfileById = session.Load<TeaProfile>(idPrefix + "/" + "Earl Grey");
                 WriteLineWithColor($"Loaded {loadProfileById.Name}.  It has {loadProfileById.CaffeineMilligrams} mg of caffeine!", ConsoleColor.Green);
             }
@@ -111,7 +111,7 @@ namespace RavenDBTesting
                     .Advanced
                     .LoadStartingWith<TeaProfile>(prefix, null, 0, 50);
                 loadStopwatch.Stop();
-                WriteLineWithColor($"Loaded {loadProfilesStartingWith.Count()} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadProfilesStartingWith.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);                
+                WriteLineWithColor($"Loaded {loadProfilesStartingWith.Count()} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadProfilesStartingWith.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
             }
 
             #endregion
@@ -128,10 +128,10 @@ namespace RavenDBTesting
                 docQueryAllProfiles = session
                     .Advanced
                     .DocumentQuery<TeaProfile>()
-                    .WhereGreaterThan(x => x.CaffeineMilligrams,5)
+                    .WhereGreaterThan(x => x.CaffeineMilligrams, 5)
                     .ToList();
                 loadStopwatch.Stop();
-                WriteLineWithColor($"Loaded {docQueryAllProfiles.Count} profiles that have caffeine greater than 5 in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {docQueryAllProfiles.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);                
+                WriteLineWithColor($"Loaded {docQueryAllProfiles.Count} profiles that have caffeine greater than 5 in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {docQueryAllProfiles.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
             }
 
             // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
@@ -160,7 +160,7 @@ namespace RavenDBTesting
                     .ToList();
                 loadStopwatch.Stop();
                 WriteLineWithColor($"Loaded {docQuerySpecificProfiles.Count} tea profiles that aren't white tea, and don't have" +
-                    $" caffeine greater than 5 in {loadStopwatch.ElapsedMilliseconds} ms. {string.Join(",",docQuerySpecificProfiles.Select(x => x.Name))} made " +
+                    $" caffeine greater than 5 in {loadStopwatch.ElapsedMilliseconds} ms. {string.Join(",", docQuerySpecificProfiles.Select(x => x.Name))} made " +
                     $"the list. Together, they have a total of {docQuerySpecificProfiles.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
             }
 
@@ -200,10 +200,10 @@ namespace RavenDBTesting
             WriteLineWithColor($"Moving to Query with include", ConsoleColor.Blue);
             TeaProfile teaProfileForCup = indexedQueryResults.First();
             CupOfTea cup1 = new CupOfTea() { PouredOn = DateTime.UtcNow, TeaProfileId = teaProfileForCup.Id, Temperature = 212 };
-            CupOfTea cup2 = new CupOfTea() { PouredOn = DateTime.UtcNow, TeaProfileId = teaProfileForCup.Id, Temperature = 200 };
+            CupOfTea cup2 = new CupOfTea() { PouredOn = DateTime.UtcNow, TeaProfileId = indexedQueryResults.First(x => x.CaffeineMilligrams > 1).Id, Temperature = 200 };
 
             using (IDocumentSession session = store.OpenSession(new SessionOptions()))
-            {                
+            {
                 Stopwatch loadStopwatch = new Stopwatch();
                 loadStopwatch.Start();
 
@@ -231,6 +231,41 @@ namespace RavenDBTesting
             // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
 
             #endregion
+
+            #region Multi doc query with multi include, many-to-many use case
+
+            WriteLineWithColor($"Moving to multi doc query with multi include", ConsoleColor.Blue);
+            // reusing objects from above, but instantiating fresh session
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {
+                Stopwatch loadStopwatch = new Stopwatch();
+                loadStopwatch.Start();
+
+                List<CupOfTea> allCupsOfTeaInDatabase = session
+                    .Advanced
+                    .DocumentQuery<CupOfTea>()
+                    .Include(x => x.TeaProfileId)
+                    //.Include<CupOfTea>(x => x.TeaProfileId)
+                    .ToList();
+                int roundtrips = session.Advanced.NumberOfRequests;
+
+                // all associated docs in session, still only 1 roundtrip
+                var associatedProfiles = session.Load<TeaProfile>(
+                        allCupsOfTeaInDatabase
+                        .Select(x => x.TeaProfileId)
+                    .ToArray())
+                    .ToList();
+
+                roundtrips = session.Advanced.NumberOfRequests;
+
+                loadStopwatch.Stop();
+                WriteLineWithColor($"Loaded multiple documents with multi includes in {loadStopwatch.ElapsedMilliseconds} ms.", ConsoleColor.Green);
+            }
+
+            // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
+
+            #endregion
+
 
             #region Interrogate document store conventions to assist with calling code
 

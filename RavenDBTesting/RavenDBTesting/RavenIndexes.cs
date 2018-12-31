@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Raven.Client.Documents.Indexes;
 
 namespace RavenDBTesting
@@ -22,7 +21,7 @@ namespace RavenDBTesting
                                    select new
                                    {
                                        CaffeineMilligrams = profile.CaffeineMilligrams                                       
-                                   };
+                                   };                
             }
         }
     }
