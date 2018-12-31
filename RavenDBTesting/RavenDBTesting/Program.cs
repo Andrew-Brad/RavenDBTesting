@@ -111,9 +111,7 @@ namespace RavenDBTesting
                     .Advanced
                     .LoadStartingWith<TeaProfile>(prefix, null, 0, 50);
                 loadStopwatch.Stop();
-                WriteLineWithColor($"Loaded {loadProfilesStartingWith.Count()} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadProfilesStartingWith.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);
-                // session will hold and track multiple entities instead of making the full roundtrip
-                var isEarlGreyLoadedFromSession = session.Advanced.IsLoaded(loadProfilesStartingWith.First().Name);
+                WriteLineWithColor($"Loaded {loadProfilesStartingWith.Count()} profiles in {loadStopwatch.ElapsedMilliseconds} ms. Together, they have a total of {loadProfilesStartingWith.Sum(x => x.CaffeineMilligrams)} mg of caffeine!", ConsoleColor.Green);                
             }
 
             #endregion
@@ -196,7 +194,44 @@ namespace RavenDBTesting
             // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
 
             #endregion
-                       
+
+            #region Query with includes, no index
+
+            WriteLineWithColor($"Moving to Query with include", ConsoleColor.Blue);
+            TeaProfile teaProfileForCup = indexedQueryResults.First();
+            CupOfTea cup1 = new CupOfTea() { PouredOn = DateTime.UtcNow, TeaProfileId = teaProfileForCup.Id, Temperature = 212 };
+            CupOfTea cup2 = new CupOfTea() { PouredOn = DateTime.UtcNow, TeaProfileId = teaProfileForCup.Id, Temperature = 200 };
+
+            using (IDocumentSession session = store.OpenSession(new SessionOptions()))
+            {                
+                Stopwatch loadStopwatch = new Stopwatch();
+                loadStopwatch.Start();
+
+                session.Store(cup1);
+                session.Store(cup2);
+                session.SaveChanges(); // roundtrip 1
+
+                CupOfTea cup1db = session
+                    .Include<CupOfTea>(x => x.TeaProfileId)
+                    .Load<CupOfTea>(cup1.Id); // roundtrip skipped due to already being loaded in session
+
+                // session will hold and track multiple entities instead of making the full roundtrip
+                bool isProfileLoadedFromSession = session.Advanced.IsLoaded(teaProfileForCup.Id); // false
+
+                TeaProfile includedProfile = session.Load<TeaProfile>(cup1db.TeaProfileId); // loading doc not in session, roundtrip 2
+
+                // this now becomes true, but only 2 roundtrips made (1 for initial save and 1 for read)
+                isProfileLoadedFromSession = session.Advanced.IsLoaded(teaProfileForCup.Id);
+                int roundtrips = session.Advanced.NumberOfRequests;
+
+                loadStopwatch.Stop();
+                WriteLineWithColor($"Loaded document with Include() in {loadStopwatch.ElapsedMilliseconds} ms.", ConsoleColor.Green);
+            }
+
+            // More custom methods at https://ravendb.net/docs/article-page/4.1/csharp/client-api/session/querying/document-query/what-is-document-query#custom-methods-and-extensions
+
+            #endregion
+
             #region Interrogate document store conventions to assist with calling code
 
             string conventionCollectionName = store.Conventions.FindCollectionName(typeof(TeaProfile));

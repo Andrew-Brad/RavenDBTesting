@@ -16,7 +16,7 @@ namespace RavenDBTesting
             Oolong
         }
 
-        //public string Id { get { return Name; } }
+        public string Id { get; set; } 
         public string Name { get; set; }
         public decimal CaffeineMilligrams { get; set; }
         public bool IsCaffeinated { get { return CaffeineMilligrams > 0; } }
